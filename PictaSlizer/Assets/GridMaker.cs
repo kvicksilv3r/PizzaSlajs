@@ -2,136 +2,183 @@ using JetBrains.Annotations;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 public class GridMaker : MonoBehaviour
 {
-    public int widthCount;
-    public int heightCount;
+	public int widthCount;
+	public int heightCount;
 
-    public bool button;
-    public bool genTexture;
-    public bool assign;
-    public bool reverse;
+	public bool button;
+	public bool genTexture;
+	public bool assign;
+	public bool reverse;
+	public bool everything;
 
-    public GameObject gridCell;
+	public GameObject gridCell;
 
-    public GameObject father;
+	public GameObject father;
 
-    public GridLayoutGroup glg;
+	public GridLayoutGroup glg;
 
-    public Texture2D sourceTexture;
-    public List<Texture2D> gridTextures = new List<Texture2D>();
+	public Texture2D sourceTexture;
+	public List<Texture2D> gridTextures = new List<Texture2D>();
 
-    public int cellCount = 0;
+	public int cellCount = 0;
 
-    public int cellWidth = 0;
+	public int cellWidth = 0;
 
-    private void OnValidate()
-    {
-        if (button)
-        {
-            button = !button;
-            GenerateGrid();
-        }
+	private string timeToGen = "";
 
-        if (genTexture)
-        {
-            genTexture = false;
-            SlizeImage(sourceTexture, cellWidth, widthCount, heightCount, (int)glg.spacing.x, glg.padding.right);
-        }
+	public TextMeshProUGUI timeToGenTMP;
 
-        if (assign)
-        {
-            assign = false;
-            AssignTextures();
-        }
+	private void OnValidate()
+	{
+		if (button)
+		{
+			button = !button;
+			GenerateGrid();
+		}
 
-        if (reverse)
-        {
-            reverse = false;
-            ReverseTextureOrder();
-        }
-    }
+		if (genTexture)
+		{
+			genTexture = false;
+			SlizeImage(sourceTexture, cellWidth, widthCount, heightCount, (int)glg.spacing.x, glg.padding.right);
+		}
 
-    private void ReverseTextureOrder()
-    {
-        gridTextures.Reverse();
-    }
+		if (assign)
+		{
+			assign = false;
+			AssignTextures();
+		}
 
-    private void AssignTextures()
-    {
-        for (int i = 0; i < father.transform.childCount; i++)
-        {
-            father.transform.GetChild(i).GetComponent<RawImage>().texture = gridTextures[i];
-        }
-    }
+		if (reverse)
+		{
+			reverse = false;
+			ReverseTextureOrder();
+		}
 
-    private void SlizeImage(Texture2D srcTexture, int cellSide, int horizontalCells, int verticalCells, int spacing = 0, int padding = 0)
-    {
-        ClearTextureList();
-        CopyPixels(srcTexture, cellSide, horizontalCells, verticalCells, spacing, padding);
-    }
+		if (everything)
+		{
+			everything = false;
+			DoEverything();
+		}
+	}
 
-    private void CopyPixels(Texture2D srcTexture, int cellSide, int horizontalCells, int verticalCells, int spacing = 0, int padding = 0)
-    {
-        for (int y = 0; y < verticalCells; y++)
-        {
-            for (int x = 0; x < horizontalCells; x++)
-            {
-                int srcX = padding;
-                srcX += x * spacing;
-                srcX += x * cellSide;
+	public void DoEverything()
+	{
+		Stopwatch s = new Stopwatch();
+		s.Start();
 
-                int srcY = padding;
-                srcY += y * spacing;
-                srcY += y * cellSide;
+		GenerateGrid();
+		SlizeImage(sourceTexture, cellWidth, widthCount, heightCount, (int)glg.spacing.x, glg.padding.right);
+		ReverseTextureOrder();
+		AssignTextures();
 
-                var newTexture = CreateDestinationTexture(srcTexture, cellSide);
-                Graphics.CopyTexture(srcTexture, 0, 0, srcX, srcY, cellSide, cellSide, newTexture, 0, 0, 0, 0);
-                gridTextures.Add(newTexture);
-            }
-        }
-    }
+		s.Stop();
 
-    private Texture2D CreateDestinationTexture(Texture2D srcTexture, int cellSide)
-    {
-        Texture2D newTexture = new Texture2D(cellSide, cellSide, srcTexture.format, false);
-        return newTexture;
-    }
+		timeToGen = $"Took {s.ElapsedMilliseconds.ToString()} ms to gen";
+		print(timeToGen);
 
-    private void ClearTextureList()
-    {
-        gridTextures = new List<Texture2D>();
-    }
+		if (Application.isPlaying)
+		{
+			timeToGenTMP.text = timeToGen;
+		}
+	}
 
-    private void GenerateGrid()
-    {
-        foreach (Transform oldChild in father.transform)
-        {
-            Destroy(oldChild.gameObject);
-        }
+	public void SetCellAmount(int amount)
+	{
+		widthCount = amount;
+	}
 
-        var fatherBox = father.GetComponent<RectTransform>().rect;
+	private void ReverseTextureOrder()
+	{
+		gridTextures.Reverse();
+	}
 
-        var useableWidth = fatherBox.width;
-        useableWidth -= glg.padding.left;
-        useableWidth -= glg.padding.right;
-        useableWidth -= (widthCount - 1) * glg.spacing.x;
+	private void AssignTextures()
+	{
+		for (int i = 0; i < gridTextures.Count; i++)
+		{
+			father.transform.GetChild(i).GetComponent<RawImage>().texture = gridTextures[i];
+		}
+	}
 
-        cellWidth = Mathf.FloorToInt(useableWidth / widthCount);
-        heightCount = Mathf.FloorToInt(fatherBox.height / cellWidth);
+	public void KillChildren()
+	{
+		foreach (Transform oldChild in father.transform)
+		{
+			DestroyImmediate(oldChild.gameObject);
+		}
+	}
 
-        print(heightCount);
+	private void SlizeImage(Texture2D srcTexture, int cellSide, int horizontalCells, int verticalCells, int spacing = 0, int padding = 0)
+	{
+		ClearTextureList();
+		CopyPixels(srcTexture, cellSide, horizontalCells, verticalCells, spacing, padding);
+	}
 
-        glg.cellSize = new Vector2(cellWidth, cellWidth);
+	private void CopyPixels(Texture2D srcTexture, int cellSide, int horizontalCells, int verticalCells, int spacing = 0, int padding = 0)
+	{
+		for (int y = 0; y < verticalCells; y++)
+		{
+			for (int x = 0; x < horizontalCells; x++)
+			{
+				int srcX = padding;
+				srcX += x * spacing;
+				srcX += x * cellSide;
 
-        cellCount = widthCount * heightCount;
+				int srcY = padding;
+				srcY += y * spacing;
+				srcY += y * cellSide;
 
-        for (int i = 0; i < cellCount; i++)
-        {
-            Instantiate(gridCell, father.transform);
-        }
-    }
+				var newTexture = CreateDestinationTexture(srcTexture, cellSide);
+				Graphics.CopyTexture(srcTexture, 0, 0, srcX, srcY, cellSide, cellSide, newTexture, 0, 0, 0, 0);
+				gridTextures.Add(newTexture);
+			}
+		}
+	}
+
+	private Texture2D CreateDestinationTexture(Texture2D srcTexture, int cellSide)
+	{
+		Texture2D newTexture = new Texture2D(cellSide, cellSide, srcTexture.format, false);
+		return newTexture;
+	}
+
+	private void ClearTextureList()
+	{
+		gridTextures = new List<Texture2D>();
+	}
+
+	private void GenerateGrid()
+	{
+		foreach (Transform oldChild in father.transform)
+		{
+			DestroyImmediate(oldChild.gameObject);
+		}
+
+		var fatherBox = father.GetComponent<RectTransform>().rect;
+
+		var useableWidth = fatherBox.width;
+		useableWidth -= glg.padding.left;
+		useableWidth -= glg.padding.right;
+		useableWidth -= (widthCount - 1) * glg.spacing.x;
+
+		cellWidth = Mathf.FloorToInt(useableWidth / widthCount);
+		heightCount = Mathf.FloorToInt(fatherBox.height / (cellWidth + glg.spacing.x));
+
+		print(heightCount);
+
+		glg.cellSize = new Vector2(cellWidth, cellWidth);
+
+		cellCount = widthCount * heightCount;
+
+		for (int i = 0; i < cellCount; i++)
+		{
+			Instantiate(gridCell, father.transform);
+		}
+	}
 }
